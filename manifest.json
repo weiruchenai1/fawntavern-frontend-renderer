@@ -1,7 +1,7 @@
 {
   "id": "me.rerere.fawntavern.frontend",
   "name": "FawnTavern 前端渲染器",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "author": "FawnTavern",
   "description": "在聊天中渲染 HTML 前端卡",
   "entry": "index.js",
@@ -12,10 +12,9 @@
     "properties": {
       "heightDp": {
         "type": "integer",
-        "title": "前端卡高度（dp）",
-        "default": 360,
-        "minimum": 96,
-        "maximum": 720
+        "title": "前端卡高度（dp，0 为自动）",
+        "default": 0,
+        "minimum": 0
       },
       "renderBareHtml": {
         "type": "boolean",

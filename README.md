@@ -10,7 +10,7 @@ FawnTavern 官方聊天前端插件。启用后，助手消息中的完整 `html
 https://github.com/weiruchenai1/fawntavern-frontend-renderer
 ```
 
-安装后手动启用“FawnTavern 前端渲染器”。设置页可以调整卡片高度，以及是否渲染独立 HTML 消息。
+安装后手动启用“FawnTavern 前端渲染器”。默认按内容自动调整卡片高度；设置页也可以指定高度（单位 dp，填 0 恢复自动），以及选择是否渲染独立 HTML 消息。长前端卡由聊天列表滚动。
 
 ## 支持范围
 

@@ -71,7 +71,7 @@ FawnTavern.register({
       if (!html) return null;
       return {
         html,
-        heightDp: FawnTavern.config.heightDp ?? 360
+        heightDp: FawnTavern.config.heightDp ?? 0
       };
     }
   }
