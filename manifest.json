@@ -1,0 +1,32 @@
+{
+  "id": "me.rerere.fawntavern.frontend",
+  "name": "FawnTavern 前端渲染器",
+  "version": "0.1.0",
+  "author": "FawnTavern",
+  "description": "在聊天中渲染 HTML 前端卡",
+  "entry": "index.js",
+  "capabilities": ["message-renderer"],
+  "permissions": [],
+  "configSchema": {
+    "type": "object",
+    "properties": {
+      "heightDp": {
+        "type": "integer",
+        "title": "前端卡高度（dp）",
+        "default": 360,
+        "minimum": 96,
+        "maximum": 720
+      },
+      "renderBareHtml": {
+        "type": "boolean",
+        "title": "渲染独立 HTML 消息",
+        "default": true
+      }
+    }
+  },
+  "autoUpdate": true,
+  "update": {
+    "repo": "weiruchenai1/fawntavern-frontend-renderer"
+  },
+  "homePage": "https://github.com/weiruchenai1/fawntavern-frontend-renderer"
+}
