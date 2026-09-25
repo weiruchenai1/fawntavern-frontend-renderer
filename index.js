@@ -7,6 +7,52 @@ function normalizeLines(content) {
   return content.replace(/\r\n?/g, "\n");
 }
 
+function templateScope(ctx) {
+  const ids = {
+    getCurrentMessageId: () => ctx.messageIndex,
+    getLastMessageId: () => ctx.lastMessageIndex
+  };
+  return {
+    char: ctx.charName,
+    user: ctx.userName,
+    charName: ctx.charName,
+    userName: ctx.userName,
+    message_id: ctx.messageIndex,
+    last_message_id: ctx.lastMessageIndex,
+    ...ids,
+    TavernHelper: ids
+  };
+}
+
+function evaluateTemplate(source, ctx) {
+  if (!source.includes("<%")) return source;
+  const tag = /<%([=#-]?)([\s\S]*?)%>/g;
+  let code = "let output = ''; const print = (...values) => { output += values.join(''); };";
+  let cursor = 0;
+  for (const match of source.matchAll(tag)) {
+    code += `output += ${JSON.stringify(source.slice(cursor, match.index))};`;
+    if (match[1] === "=" || match[1] === "-") {
+      code += `output += String((${match[2]}) ?? '');`;
+    } else if (match[1] !== "#") {
+      code += `${match[2]}\n`;
+    }
+    cursor = match.index + match[0].length;
+  }
+  code += `output += ${JSON.stringify(source.slice(cursor))}; return output;`;
+  try {
+    return new Function("scope", `with (scope) { ${code} }`)(templateScope(ctx));
+  } catch (_) {
+    return source;
+  }
+}
+
+function quoteInlineJson(value) {
+  return JSON.stringify(value)
+    .replace(/</g, "\\u003c")
+    .replace(/\u2028/g, "\\u2028")
+    .replace(/\u2029/g, "\\u2029");
+}
+
 function parseFences(lines) {
   const blocks = [];
   for (let start = 0; start < lines.length;) {
@@ -70,15 +116,23 @@ function replaceViewportHeightUnits(source) {
     });
 }
 
-function toHtml(token) {
-  if (token.type === "html") return replaceViewportHeightUnits(stripNestedFenceLines(token.body));
+function toHtml(token, ctx) {
+  if (token.type === "html") {
+    return replaceViewportHeightUnits(evaluateTemplate(stripNestedFenceLines(token.body), ctx));
+  }
   if (token.type === "css") return wrapResource(replaceViewportHeightUnits(token.body), "style");
   if (token.type === "js") return wrapResource(token.body, "script");
   return token.source;
 }
 
-function withCardRuntime(html) {
-  const script = '<script src="assets/card-runtime.js"></script>';
+function withCardRuntime(html, ctx) {
+  const context = quoteInlineJson({
+    messageIndex: ctx.messageIndex,
+    lastMessageIndex: ctx.lastMessageIndex,
+    charName: ctx.charName,
+    userName: ctx.userName
+  });
+  const script = `<script>window.__FTCardContext=${context};</script><script src="assets/card-runtime.js"></script>`;
   if (html.includes('assets/card-runtime.js')) return html;
   const head = /<head(?:\s[^>]*)?>/i.exec(html);
   if (head) {
@@ -93,15 +147,15 @@ function withCardRuntime(html) {
   return script + html;
 }
 
-function htmlSegment(content, heightDp) {
-  return { type: "html", content: withCardRuntime(content), heightDp };
+function htmlSegment(content, heightDp, ctx) {
+  return { type: "html", content: withCardRuntime(content, ctx), heightDp };
 }
 
-function parseMessage(content, heightDp, allowBareHtml) {
-  const normalized = normalizeLines(content);
+function parseMessage(ctx, heightDp, allowBareHtml) {
+  const normalized = normalizeLines(ctx.content);
   const bare = normalized.trim();
   if (allowBareHtml && BARE_HTML_START.test(bare)) {
-    return { segments: [htmlSegment(replaceViewportHeightUnits(bare), heightDp)] };
+    return { segments: [htmlSegment(replaceViewportHeightUnits(evaluateTemplate(bare, ctx)), heightDp, ctx)] };
   }
   const lines = normalized.split("\n");
   const blocks = parseFences(lines);
@@ -133,8 +187,8 @@ function parseMessage(content, heightDp, allowBareHtml) {
   function flushFrontendGroup() {
     if (frontendGroup.length === 0) return;
     if (frontendGroup.some(token => token.type === "html")) {
-      const html = frontendGroup.map(toHtml).join("\n").trim();
-      if (html) segments.push(htmlSegment(html, heightDp));
+      const html = frontendGroup.map(token => toHtml(token, ctx)).join("\n").trim();
+      if (html) segments.push(htmlSegment(html, heightDp, ctx));
     } else {
       appendMarkdown(frontendGroup.map(token => token.source).join("\n"));
     }
@@ -158,7 +212,7 @@ FawnTavern.register({
   "message-renderer": {
     render(ctx) {
       const heightDp = FawnTavern.config.heightDp ?? 0;
-      return parseMessage(ctx.content, heightDp, FawnTavern.config.renderBareHtml !== false);
+      return parseMessage(ctx, heightDp, FawnTavern.config.renderBareHtml !== false);
     }
   }
 });

@@ -1,4 +1,19 @@
 (() => {
+  const context = window.__FTCardContext || {};
+  const helper = {
+    getCurrentMessageId: () => Number(context.messageIndex ?? -1),
+    getLastMessageId: () => Number(context.lastMessageIndex ?? -1),
+    setInputText(value) {
+      if (window.FTCardInput?.setInputText) FTCardInput.setInputText(String(value ?? ""));
+    }
+  };
+  try {
+    if (!window.TavernHelper) window.TavernHelper = helper;
+    for (const [name, method] of Object.entries(helper)) {
+      if (window[name] === undefined) window[name] = method;
+    }
+  } catch (_) {}
+
   let pending = false;
   let lastHeight = 0;
   const observedFrames = new WeakSet();
