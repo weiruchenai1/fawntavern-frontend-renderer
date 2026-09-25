@@ -1,7 +1,7 @@
 {
   "id": "me.rerere.fawntavern.frontend",
   "name": "FawnTavern 前端渲染器",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "author": "FawnTavern",
   "description": "在聊天中渲染 HTML 前端卡",
   "entry": "index.js",
