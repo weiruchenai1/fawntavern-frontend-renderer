@@ -147,15 +147,15 @@ function withCardRuntime(html, ctx) {
   return script + html;
 }
 
-function htmlSegment(content, heightDp, ctx) {
-  return { type: "html", content: withCardRuntime(content, ctx), heightDp };
+function htmlSegment(content, ctx) {
+  return { type: "html", content: withCardRuntime(content, ctx) };
 }
 
-function parseMessage(ctx, heightDp, allowBareHtml) {
+function parseMessage(ctx, allowBareHtml) {
   const normalized = normalizeLines(ctx.content);
   const bare = normalized.trim();
   if (allowBareHtml && BARE_HTML_START.test(bare)) {
-    return { segments: [htmlSegment(replaceViewportHeightUnits(evaluateTemplate(bare, ctx)), heightDp, ctx)] };
+    return { segments: [htmlSegment(replaceViewportHeightUnits(evaluateTemplate(bare, ctx)), ctx)] };
   }
   const lines = normalized.split("\n");
   const blocks = parseFences(lines);
@@ -188,7 +188,7 @@ function parseMessage(ctx, heightDp, allowBareHtml) {
     if (frontendGroup.length === 0) return;
     if (frontendGroup.some(token => token.type === "html")) {
       const html = frontendGroup.map(token => toHtml(token, ctx)).join("\n").trim();
-      if (html) segments.push(htmlSegment(html, heightDp, ctx));
+      if (html) segments.push(htmlSegment(html, ctx));
     } else {
       appendMarkdown(frontendGroup.map(token => token.source).join("\n"));
     }
@@ -211,8 +211,7 @@ function parseMessage(ctx, heightDp, allowBareHtml) {
 FawnTavern.register({
   "message-renderer": {
     render(ctx) {
-      const heightDp = FawnTavern.config.heightDp ?? 0;
-      return parseMessage(ctx, heightDp, FawnTavern.config.renderBareHtml !== false);
+      return parseMessage(ctx, FawnTavern.config.renderBareHtml !== false);
     }
   }
 });
