@@ -46,13 +46,6 @@ function evaluateTemplate(source, ctx) {
   }
 }
 
-function quoteInlineJson(value) {
-  return JSON.stringify(value)
-    .replace(/</g, "\\u003c")
-    .replace(/\u2028/g, "\\u2028")
-    .replace(/\u2029/g, "\\u2029");
-}
-
 function parseFences(lines) {
   const blocks = [];
   for (let start = 0; start < lines.length;) {
@@ -85,24 +78,15 @@ function parseFences(lines) {
   return blocks;
 }
 
-function blockType(block) {
-  if (block.language === "css") return "css";
-  if (block.language === "js" || block.language === "javascript") return "js";
-  if (HTML_ELEMENT.test(block.body) &&
-      (HTML_LANGUAGES.has(block.language) || DOCUMENT_ELEMENT.test(block.body))) return "html";
-  return "other";
+function isFrontendBlock(block) {
+  return HTML_ELEMENT.test(block.body) &&
+    (HTML_LANGUAGES.has(block.language) || DOCUMENT_ELEMENT.test(block.body));
 }
 
 function stripNestedFenceLines(body) {
   return body.split("\n")
     .filter(line => !/^(?:`{3,}|~{3,})(?:html|htm|css|js|javascript)?$/i.test(line.trim()))
     .join("\n");
-}
-
-function wrapResource(body, tag) {
-  return new RegExp(`^\\s*<${tag}\\b`, "i").test(body)
-    ? body
-    : `<${tag}>\n${body}\n</${tag}>`;
 }
 
 function replaceViewportHeightUnits(source) {
@@ -116,24 +100,25 @@ function replaceViewportHeightUnits(source) {
     });
 }
 
-function toHtml(token, ctx) {
-  if (token.type === "html") {
-    return replaceViewportHeightUnits(evaluateTemplate(stripNestedFenceLines(token.body), ctx));
-  }
-  if (token.type === "css") return wrapResource(replaceViewportHeightUnits(token.body), "style");
-  if (token.type === "js") return wrapResource(token.body, "script");
-  return token.source;
-}
-
-function withCardRuntime(html, ctx) {
-  const context = quoteInlineJson({
-    messageIndex: ctx.messageIndex,
-    lastMessageIndex: ctx.lastMessageIndex,
-    charName: ctx.charName,
-    userName: ctx.userName
-  });
-  const script = `<script>window.__FTCardContext=${context};</script><script src="assets/card-runtime.js"></script>`;
-  if (html.includes('assets/card-runtime.js')) return html;
+function withCardRuntime(html) {
+  const libraries = FawnTavern.config.loadCompatibilityLibraries === false ? '' : `
+<link rel="stylesheet" href="assets/vendor/fontawesome/css/all.min.css">
+<link rel="stylesheet" href="assets/vendor/jquery-ui.min.css">
+<link rel="stylesheet" href="assets/vendor/toastr.min.css">
+<script src="assets/vendor/tailwindcss.min.js"></script>
+<script src="assets/vendor/lodash.min.js"></script>
+<script src="assets/vendor/jquery.min.js"></script>
+<script src="assets/vendor/jquery-ui.min.js"></script>
+<script src="assets/vendor/jquery.ui.touch-punch.min.js"></script>
+<script src="assets/vendor/vue.runtime.global.prod.js"></script>
+<script src="assets/vendor/vue-router.global.prod.js"></script>
+<script src="assets/vendor/js-yaml.min.js"></script>
+<script src="assets/vendor/zod.umd.js"></script>
+<script src="assets/vendor/showdown.min.js"></script>
+<script src="assets/vendor/toastr.min.js"></script>`;
+  const runtime = html.includes('assets/card-runtime.js') ? '' : '<script src="assets/card-runtime.js"></script>';
+  const script = libraries + runtime;
+  if (!script) return html;
   const head = /<head(?:\s[^>]*)?>/i.exec(html);
   if (head) {
     const offset = head.index + head[0].length;
@@ -147,36 +132,21 @@ function withCardRuntime(html, ctx) {
   return script + html;
 }
 
-function htmlSegment(content, ctx) {
-  return { type: "html", content: withCardRuntime(content, ctx) };
+function htmlSegment(content) {
+  return { type: "html", content: withCardRuntime(content) };
 }
 
 function parseMessage(ctx, allowBareHtml) {
   const normalized = normalizeLines(ctx.content);
   const bare = normalized.trim();
   if (allowBareHtml && BARE_HTML_START.test(bare)) {
-    return { segments: [htmlSegment(replaceViewportHeightUnits(evaluateTemplate(bare, ctx)), ctx)] };
+    return { segments: [htmlSegment(replaceViewportHeightUnits(evaluateTemplate(bare, ctx)))] };
   }
   const lines = normalized.split("\n");
   const blocks = parseFences(lines);
-  const typedBlocks = blocks.map(block => ({ ...block, type: blockType(block) }));
-  if (!typedBlocks.some(block => block.type === "html")) return null;
-
-  const tokens = [];
-  let cursor = 0;
-  for (const block of typedBlocks) {
-    if (cursor < block.start) {
-      tokens.push({ type: "text", source: lines.slice(cursor, block.start).join("\n") });
-    }
-    tokens.push(block);
-    cursor = block.end + 1;
-  }
-  if (cursor < lines.length) {
-    tokens.push({ type: "text", source: lines.slice(cursor).join("\n") });
-  }
+  if (!blocks.some(isFrontendBlock)) return null;
 
   const segments = [];
-  let frontendGroup = [];
   function appendMarkdown(text) {
     const value = text.replace(/^\n+|\n+$/g, "");
     if (!value.trim()) return;
@@ -184,27 +154,19 @@ function parseMessage(ctx, allowBareHtml) {
     if (previous?.type === "markdown") previous.content += `\n${value}`;
     else segments.push({ type: "markdown", content: value });
   }
-  function flushFrontendGroup() {
-    if (frontendGroup.length === 0) return;
-    if (frontendGroup.some(token => token.type === "html")) {
-      const html = frontendGroup.map(token => toHtml(token, ctx)).join("\n").trim();
-      if (html) segments.push(htmlSegment(html, ctx));
-    } else {
-      appendMarkdown(frontendGroup.map(token => token.source).join("\n"));
-    }
-    frontendGroup = [];
-  }
 
-  for (const token of tokens) {
-    const frontend = token.type === "html" || token.type === "css" || token.type === "js";
-    if (frontend || (token.type === "text" && !token.source.trim() && frontendGroup.length > 0)) {
-      frontendGroup.push(token);
+  let cursor = 0;
+  for (const block of blocks) {
+    if (cursor < block.start) appendMarkdown(lines.slice(cursor, block.start).join("\n"));
+    if (isFrontendBlock(block)) {
+      const html = replaceViewportHeightUnits(evaluateTemplate(stripNestedFenceLines(block.body), ctx)).trim();
+      if (html) segments.push(htmlSegment(html));
     } else {
-      flushFrontendGroup();
-      appendMarkdown(token.source);
+      appendMarkdown(block.source);
     }
+    cursor = block.end + 1;
   }
-  flushFrontendGroup();
+  if (cursor < lines.length) appendMarkdown(lines.slice(cursor).join("\n"));
   return segments.some(segment => segment.type === "html") ? { segments } : null;
 }
 

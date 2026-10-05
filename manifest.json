@@ -1,18 +1,23 @@
 {
   "id": "me.rerere.fawntavern.frontend",
   "name": "FawnTavern 前端渲染器",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "author": "FawnTavern",
   "description": "在聊天中渲染 HTML 前端卡",
   "entry": "index.js",
   "capabilities": ["message-renderer"],
-  "permissions": [],
+  "permissions": ["chat.read", "model.generate", "variables.read", "variables.write"],
   "configSchema": {
     "type": "object",
     "properties": {
       "renderBareHtml": {
         "type": "boolean",
         "title": "渲染独立 HTML 消息",
+        "default": true
+      },
+      "loadCompatibilityLibraries": {
+        "type": "boolean",
+        "title": "加载本地前端兼容库",
         "default": true
       }
     }
