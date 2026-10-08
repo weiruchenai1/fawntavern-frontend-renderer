@@ -9,8 +9,11 @@ test('安装包根目录、入口、运行库及许可证完整', () => {
   const manifest = JSON.parse(Buffer.from(files['manifest.json']).toString('utf8'));
   assert.equal(manifest.id, 'me.rerere.fawntavern.frontend');
   assert.equal(manifest.entry, 'index.js');
+  assert.equal(manifest.version, require('../package.json').version);
+  assert.equal(manifest.autoUpdate, true);
+  assert.equal(manifest.update.repo, 'weiruchenai1/fawntavern-frontend-renderer');
   assert.ok(files[manifest.entry].length <= 384 * 1024);
-  for (const path of ['assets/card-runtime.js', 'assets/script-runtime.js',
+  for (const path of ['assets/card-runtime.js', 'assets/script-runtime.js', 'assets/script-ui.css',
     'assets/vendor/libraries.js', 'assets/vendor/tailwind.js',
     'assets/vendor/fontawesome/webfonts/fa-solid-900.woff2',
     'assets/vendor/licenses/yaml.txt', 'assets/vendor/licenses/zod.txt', 'LICENSE']) {

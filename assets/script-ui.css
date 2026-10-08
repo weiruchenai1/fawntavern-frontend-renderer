@@ -1,0 +1,36 @@
+#ft-script-buttons[hidden], #ft-script-error-details[hidden] { display: none; }
+#ft-script-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 4px 0;
+}
+#ft-script-buttons button {
+  min-height: 40px;
+  padding: 8px 14px;
+  border: 1px solid currentColor;
+  border-radius: 12px;
+  color: inherit;
+  background: transparent;
+  font: inherit;
+  line-height: 1.4;
+  cursor: pointer;
+}
+#ft-script-buttons button:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+#ft-script-buttons button:active { opacity: .65; }
+#ft-script-error-details {
+  margin: 4px 0;
+  padding: 8px 12px;
+  border: 1px solid currentColor;
+  border-radius: 12px;
+}
+#ft-script-error-summary { cursor: pointer; overflow-wrap: anywhere; }
+#ft-script-error-summary::marker { color: #c34b4b; }
+#ft-script-error {
+  margin: 8px 0 0;
+  max-height: 160px;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 12px;
+}

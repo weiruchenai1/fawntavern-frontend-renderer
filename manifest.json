@@ -1,7 +1,7 @@
 {
   "id": "me.rerere.fawntavern.frontend",
   "name": "FawnTavern 酒馆助手",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "author": "FawnTavern",
   "description": "HTML 前端卡、本地库环境及 MVU 变量面板兼容",
   "entry": "index.js",

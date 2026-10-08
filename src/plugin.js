@@ -77,14 +77,21 @@ function characterScripts(extensions) {
 
 function scriptDocument(script) {
   const data = JSON.stringify({
-    id: script.id, name: script.name, content: script.content,
-    buttons: script.button?.enabled === false ? [] : (script.button?.buttons || []).filter(button => button.visible),
+    id: script.id, name: script.name, info: script.info || '', content: script.content,
+    buttonsEnabled: script.button?.enabled !== false, buttons: script.button?.buttons || [],
   }).replace(/</g, '\\u003c');
+  const runtime = '<!doctype html><html><head>'
+    + '<script>window.FTCardHost=parent.FTCardHost;window.FTCardInput=parent.FTCardInput;</script>'
+    + compatibilityScript + '</head><body>'
+    + '<script src="' + assetRoot + 'script-runtime.js"></script></body></html>';
+  const srcdoc = runtime.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   return '<!doctype html><html><head>' + compatibilityScript
-    + '</head><body><div id="ft-script-name"></div><div id="ft-script-buttons"></div>'
-    + '<pre id="ft-script-error" role="alert" style="white-space:pre-wrap"></pre>'
+    + '<link rel="stylesheet" href="' + assetRoot + 'script-ui.css">'
+    + '</head><body><div id="ft-script-buttons" role="group" hidden></div>'
+    + '<details id="ft-script-error-details" hidden><summary id="ft-script-error-summary"></summary>'
+    + '<pre id="ft-script-error"></pre></details>'
     + '<script type="application/json" id="ft-script-data">' + data + '</script>'
-    + '<script src="https://plugin.local/me.rerere.fawntavern.frontend/assets/script-runtime.js"></script>'
+    + '<iframe id="ft-script-frame" hidden style="display:none!important" srcdoc="' + srcdoc + '"></iframe>'
     + '</body></html>';
 }
 

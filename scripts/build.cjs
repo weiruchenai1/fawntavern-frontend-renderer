@@ -52,3 +52,4 @@ console.log('前端依赖已生成：' + output);
 
 fs.copyFileSync(path.join(__dirname, '../src/card-runtime.js'), path.resolve(output, '../card-runtime.js'));
 fs.copyFileSync(path.join(__dirname, '../src/script-runtime.js'), path.resolve(output, '../script-runtime.js'));
+fs.copyFileSync(path.join(__dirname, '../src/script-ui.css'), path.resolve(output, '../script-ui.css'));

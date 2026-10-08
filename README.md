@@ -26,6 +26,14 @@ https://github.com/weiruchenai1/fawntavern-frontend-renderer
 
 当前同步变量快照只支持本楼层；角色变量只读，其他楼层、预设和脚本变量尚未开放。完整 MVU 框架的世界书自动初始化、额外模型分析与第三方脚本框架尚未实现。
 
+## 角色脚本
+
+启用的角色脚本在隐藏 iframe 中运行，外层只显示可见按钮。发生异常时显示带脚本名的折叠详情，展开可查看完整堆栈。脚本按钮总开关和单个按钮的可见性共同决定是否显示按钮。
+
+提供 `getScriptId()`、`getScriptName()`、`getScriptInfo()`、`replaceScriptInfo()`，以及按钮读取、替换、同步或异步更新、按名称追加去重接口。作者备注和按钮修改仅保存在本次运行的内存中，页面重建后重新读取角色卡，不回写角色卡。
+
+全局函数、`TavernHelper` 和 `TavernScript` 使用同一套接口和事件分发；监听在 iframe 卸载时清理。`errorCatched()` 将同步及异步异常写入详情并继续抛出。会话脚本只读取宿主上下文并设置输入框，不能调用插件宿主 RPC。
+
 ## App 要求
 
 需使用包含以下宿主能力的新版 FawnTavern：
@@ -36,6 +44,8 @@ https://github.com/weiruchenai1/fawntavern-frontend-renderer
 - `variables.snapshot`、`variables.message.replace`、`variables.get/replace` 和 `character.extensions.get`。
 
 仅安装插件不能为旧 App 增加原生接口。该项目可独立构建与测试，不需要检出 Android 工程。
+
+后台脚本的最小占位高度由 App 管理；包含紧凑会话前端支持的新版 App 可避免为后台脚本预留消息正文的加载空间。
 
 ## 开发
 

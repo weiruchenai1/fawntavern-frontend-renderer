@@ -168,3 +168,94 @@ test('完整库环境驱动 MVU 面板和酒馆输入框桥接', async () => {
     const result = await runFixture(browser, temp, fixture);
     assert.deepEqual(result, { initial: '150', updated: '175', inputs: ['前端选项'], active: true, writes: 2, libraries: true });
 });
+
+test('后台脚本隐藏运行，动态按钮和折叠错误详情保持可用', async () => {
+    const browser = process.env.FRONTEND_TEST_BROWSER || [
+        'C:/Program Files/Google/Chrome/Application/chrome.exe',
+        'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',
+        '/usr/bin/chromium', '/usr/bin/google-chrome',
+    ].find(existsSync);
+    assert.ok(browser, '需要 Chromium 浏览器');
+    const project = resolve(__dirname, '..');
+    const build = join(project, 'build');
+    mkdirSync(build, { recursive: true });
+    const temp = mkdtempSync(join(build, 'frontend-script-'));
+    const pluginDir = project;
+    const content = `
+      const ui = parent.document;
+      const pause = () => new Promise(resolve => setTimeout(resolve, 100));
+      const output = ui.createElement('pre');
+      output.id = 'test-results';
+      try {
+        document.body.append('后台脚本内容不应显示');
+        replaceScriptInfo('<b>更新备注</b>');
+        const info = TavernScript.getScriptInfo();
+        const hidden = getComputedStyle(frameElement).display === 'none';
+        const initialErrorHidden = ui.querySelector('#ft-script-error-details').hidden;
+        let clicks = 0;
+        TavernHelper.eventOnce(getButtonEvent('回复'), () => { clicks++; setInputText('脚本回复'); });
+        const button = ui.querySelector('button');
+        button.click();
+        button.click();
+        let lastMessage = -1;
+        TavernScript.eventOn('fawntavern:context', ctx => { lastMessage = ctx.lastMessageIndex; });
+        parent.hostContext.lastMessageIndex = 8;
+        window.dispatchEvent(new Event('fawntavern:context'));
+        await updateScriptButtonsWith(async () => [{ name: '动态', visible: true }, { name: '隐藏', visible: false }]);
+        eventOn(getButtonEvent('动态'), () => { clicks++; });
+        ui.querySelector('button').click();
+        await pause();
+        const buttonHeight = ui.querySelector('button').getBoundingClientRect().height;
+        const buttonCount = ui.querySelectorAll('button').length;
+        replaceScriptButtons([]);
+        await pause();
+        const emptyHeight = ui.body.getBoundingClientRect().height;
+        const emptyText = ui.body.innerText.trim();
+        appendInexistentScriptButtons([{ name: '复位', visible: true }]);
+        await pause();
+        const restoredHeight = ui.body.getBoundingClientRect().height;
+        void Promise.reject(new TypeError('Expected a function'));
+        await pause();
+        const details = ui.querySelector('#ft-script-error-details');
+        const collapsed = !details.hidden && !details.open;
+        const collapsedHeight = ui.body.getBoundingClientRect().height;
+        ui.querySelector('summary').click();
+        await pause();
+        const expanded = details.open && ui.body.getBoundingClientRect().height > collapsedHeight;
+        const stack = ui.querySelector('#ft-script-error').textContent;
+        output.textContent = JSON.stringify({ clicks, lastMessage, input: parent.inputTexts, id: getScriptId(),
+          info, hidden, initialErrorHidden, buttonCount, buttonSized: buttonHeight >= 40,
+          empty: emptyHeight <= 1 && emptyText === '', restored: restoredHeight > emptyHeight,
+          collapsed, expanded, stack: stack.includes('TypeError: Expected a function') && stack.includes('at '),
+          rpcCalls: parent.rpcCalls });
+      } catch (error) { output.textContent = JSON.stringify({ error: String(error.stack || error) }); }
+      ui.body.appendChild(output);
+    `;
+    let handlers;
+    require('node:vm').runInNewContext(readFileSync(join(pluginDir, 'index.js'), 'utf8'), {
+        FawnTavern: {
+            config: { runCharacterScripts: true },
+            register(value) { handlers = value; },
+            character: { async extensions() { return { tavern_helper: { scripts: [{
+                type: 'script', id: 'browser-script', name: '浏览器验证', enabled: true, content,
+                button: { buttons: [{ name: '回复', visible: true }] },
+            }] } }; } },
+        },
+    });
+    const plan = await handlers['session-frontend'].open({ permissions: ['character.read'] });
+    const host = `<script>
+        window.hostContext={sessionId:'chat',lastMessageIndex:2,hostCallsAllowed:false};window.inputTexts=[];
+        window.rpcCalls=0;
+        window.FTCardHost={getContext:()=>JSON.stringify(window.hostContext),postMessage:()=>rpcCalls++};
+        window.FTCardInput={setInputText:value=>window.inputTexts.push(value)};
+    </script>`;
+    const fixture = join(temp, 'fixture.html');
+    writeFileSync(fixture, plan.segments[0].content.replace('<head>', '<head>' + host), 'utf8');
+    const prefix = '/me.rerere.fawntavern.frontend/assets/';
+    const resources = Object.fromEntries(['card-runtime.js', 'script-runtime.js'].map(file =>
+        [prefix + file, ['application/javascript', readFileSync(join(pluginDir, 'assets', file), 'utf8')]]));
+    const result = await runFixture(browser, temp, fixture, resources);
+    assert.deepEqual(result, { clicks: 2, lastMessage: 8, input: ['脚本回复'], id: 'browser-script',
+        info: '<b>更新备注</b>', hidden: true, initialErrorHidden: true, buttonCount: 1, buttonSized: true,
+        empty: true, restored: true, collapsed: true, expanded: true, stack: true, rpcCalls: 0 });
+});
