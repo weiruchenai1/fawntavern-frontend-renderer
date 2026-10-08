@@ -1,0 +1,36 @@
+{
+  "name": "fawntavern-frontend-renderer",
+  "private": true,
+  "scripts": {
+    "build": "node scripts/build.cjs",
+    "test": "node --test tests/*.test.cjs",
+    "package": "node scripts/package.cjs"
+  },
+  "dependencies": {
+    "@fortawesome/fontawesome-free": "6.7.2",
+    "@tailwindcss/browser": "4.1.12",
+    "jquery": "3.7.1",
+    "jquery-ui-dist": "1.13.3",
+    "jquery-ui-touch-punch": "0.2.3",
+    "lodash": "4.17.21",
+    "showdown": "2.1.0",
+    "toastr": "2.1.4",
+    "vue": "3.5.42",
+    "vue-router": "4.6.3",
+    "yaml": "2.8.1",
+    "zod": "4.1.12"
+  },
+  "devDependencies": {
+    "esbuild": "0.25.11",
+    "fflate": "0.8.2"
+  },
+  "version": "0.2.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "license": "AGPL-3.0-only",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/weiruchenai1/fawntavern-frontend-renderer.git"
+  }
+}

@@ -1,24 +1,27 @@
 {
   "id": "me.rerere.fawntavern.frontend",
-  "name": "FawnTavern 前端渲染器",
-  "version": "0.1.5",
+  "name": "FawnTavern 酒馆助手",
+  "version": "0.2.0",
   "author": "FawnTavern",
-  "description": "在聊天中渲染 HTML 前端卡",
+  "description": "HTML 前端卡、本地库环境及 MVU 变量面板兼容",
   "entry": "index.js",
-  "capabilities": ["message-renderer"],
-  "permissions": ["chat.read", "model.generate", "variables.read", "variables.write"],
+  "capabilities": [
+    "message-renderer",
+    "session-frontend",
+    "generation-lifecycle"
+  ],
+  "permissions": [
+    "character.read",
+    "variables.read",
+    "variables.write"
+  ],
   "configSchema": {
     "type": "object",
     "properties": {
-      "renderBareHtml": {
+      "runCharacterScripts": {
         "type": "boolean",
-        "title": "渲染独立 HTML 消息",
-        "default": true
-      },
-      "loadCompatibilityLibraries": {
-        "type": "boolean",
-        "title": "加载本地前端兼容库",
-        "default": true
+        "title": "运行角色脚本 / Run character scripts",
+        "default": false
       }
     }
   },
