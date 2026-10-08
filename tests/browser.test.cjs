@@ -1,9 +1,24 @@
 const assert = require('node:assert/strict');
 const { spawn } = require('node:child_process');
+const { createServer } = require('node:http');
 const { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } = require('node:fs');
 const { join, resolve } = require('node:path');
 const { pathToFileURL } = require('node:url');
 const { test } = require('node:test');
+
+async function waitForPageTarget(url, isRunning, deadline) {
+    while (true) {
+        assert.ok(isRunning(), '浏览器在调试页面就绪前退出');
+        const remaining = deadline - Date.now();
+        assert.ok(remaining > 0, '等待浏览器调试页面超时');
+        const response = await fetch(url, { signal: AbortSignal.timeout(remaining) });
+        assert.ok(response.ok, '读取浏览器调试页面失败：' + response.status);
+        const pages = await response.json();
+        const page = pages.find(page => page.type === 'page' && page.webSocketDebuggerUrl);
+        if (page) return page;
+        await new Promise(resolve => setTimeout(resolve, 30));
+    }
+}
 
 async function runFixture(browser, temp, fixture, extraResources = {}) {
     const profile = join(temp, 'profile');
@@ -32,8 +47,10 @@ async function runFixture(browser, temp, fixture, extraResources = {}) {
             }
             if (!port) await delay(30);
         }
-        const pages = await (await fetch('http://127.0.0.1:' + port + '/json/list')).json();
-        socket = new WebSocket(pages.find(page => page.type === 'page').webSocketDebuggerUrl);
+        // 调试端口先于初始页面发布就绪，CI 上可能暂时返回空列表或只有后台目标。
+        const page = await waitForPageTarget('http://127.0.0.1:' + port + '/json/list',
+            () => process.exitCode === null && process.signalCode === null, deadline);
+        socket = new WebSocket(page.webSocketDebuggerUrl);
         await new Promise((resolve, reject) => {
             socket.addEventListener('open', resolve, { once: true });
             socket.addEventListener('error', reject, { once: true });
@@ -103,6 +120,27 @@ async function runFixture(browser, temp, fixture, extraResources = {}) {
         if (process.exitCode === null) process.kill();
     }
 }
+
+test('调试端口就绪后等待可连接页面，超时或浏览器退出时明确失败', async () => {
+    const target = { type: 'page', webSocketDebuggerUrl: 'ws://127.0.0.1/devtools/page/ready' };
+    const responses = [[], [{ type: 'service_worker', webSocketDebuggerUrl: 'ws://worker' }], [{ type: 'page' }], [target]];
+    let requests = 0;
+    const server = createServer((_request, response) => {
+        response.setHeader('Content-Type', 'application/json');
+        response.end(JSON.stringify(responses[requests++] || [target]));
+    });
+    await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+    const url = 'http://127.0.0.1:' + server.address().port + '/json/list';
+    try {
+        assert.deepEqual(await waitForPageTarget(url, () => true, Date.now() + 3000), target);
+        assert.equal(requests, 4);
+        await assert.rejects(waitForPageTarget(url, () => true, Date.now() - 1), /超时/);
+        await assert.rejects(waitForPageTarget(url, () => false, Date.now() + 3000), /退出/);
+        assert.equal(requests, 4);
+    } finally {
+        await new Promise(resolve => server.close(resolve));
+    }
+});
 
 test('完整库环境驱动 MVU 面板和酒馆输入框桥接', async () => {
     const browser = process.env.FRONTEND_TEST_BROWSER || [
